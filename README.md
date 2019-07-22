@@ -1,7 +1,6 @@
 # Glue Stick
 
-Glue Stick allows to handle many cases which CSS sticky doesn't handle or makes it hard. 
-When you have multiple elements which should be sticky it automatically calculates the top position of subsequent elements.
+Easy to use sticky elements.
 
 ## Features
 - Multiple sticky elements stacked together
