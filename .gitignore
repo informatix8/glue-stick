@@ -69,5 +69,6 @@ Icon
 .gitignore.rej
 .project
 package-lock.json
-public/bundle.js.map
-public/bundle.js
+public/*.js.map
+public/glue-*.js
+cypress

@@ -14,7 +14,7 @@ export default [
         input: 'src/js/main.js',
         output: {
             name: 'GlueStick',
-            file: 'public/bundle.js',
+            file: 'public/glue-stick.js',
             format: 'iife', // immediately-invoked function expression — suitable for <script> tags
             sourcemap: true
         },
@@ -97,4 +97,5 @@ export default [
             filesize()
         ]
     }
+
 ];

@@ -1,6 +1,6 @@
 {
   "name": "@informatix8/glue-stick",
-  "version": "1.0.0",
+  "version": "2.0.0",
   "title": "Glue Stick",
   "description": "Sticky elements",
   "license": "ISC",
@@ -26,6 +26,7 @@
     "resize-observer-polyfill": "^1.5.1"
   },
   "devDependencies": {
+    "cypress": "^3.4.1",
     "jscs": "^3.0.7",
     "jsdoc": "^3.5.5",
     "jshint": "^2.10.2",
@@ -39,7 +40,7 @@
     "ub-jsdoc": "^1.7.3"
   },
   "scripts": {
-    "test": "echo \"Error: no test specified\" && exit 1",
+    "test": "cypress open",
     "dev": "npm-run-all --parallel _start _watch",
     "build": "rollup -c && npm run _lint && npm run _jsdoc",
     "_start": "serve public",

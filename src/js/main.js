@@ -14,8 +14,11 @@ class GlueStick {
      @param {String|HTMLElement} options.subject - The element that will stick. Either an HTML element object or selector string. **Required**
      @param {String|HTMLElement} options.footer - The bottom boundary element that the sticky element stretches up to, but not beyond. Either an HTML element object or selector string. **Optional**
      @param {String[]|HTMLElement[]} options.seniorSticky - reference to other sticky that appear above this sticky.  Either an HTML element or selector string. **Optional**
+     @param {String[]|HTMLElement[]} options.zIndex - zIndex of element. **Optional**
      @param {String|HTMLElement} options.pinStuckWidthToElement - An element to use as a reference for the width of the sticky when it’s stuck. This is useful for when the original container of the sticky is resized, e.g. in a resizable pane In `position: fixed` the sticky needs to stretch to match the reference element’s width. Either an HTML element object or selector string. **Optional**
      @param {Number} [options.stopStickingMaxWidth=600] Maximum responsive pixel width where the sticky stops sticking
+     @param {Array} options.calculations - Calculations to be performed on each frame request
+     @param {Array} options.positionCalculations - Calculations to be performed on viewport scroll or senior size change
      @param {Object} options.hcStickyOpts - Options to pass directly to HcSticky
      @param {Object} [options.callbacks] - User supplied functions to execute at given stages of the component lifecycle
      @param {Function} options.callbacks.preCreate
@@ -34,6 +37,16 @@ class GlueStick {
         }
 
         const defaults = {};
+
+        defaults.positionCalculations = [
+            GlueStick.calculateSeniorSticky
+        ];
+
+        defaults.calculations = [
+            GlueStick.calculateFooter,
+            GlueStick.calculateStaticSubject,
+            GlueStick.calculatePinStuck
+        ];
 
         defaults.subject = null;
         defaults.footer = null;
@@ -126,20 +139,9 @@ class GlueStick {
          */
         this.topSum = 0;
 
-        const seniorOpts = {
-            top: 0
-        };
-
         if (this.seniorSticky) {
-            const ro = new ResizeObserver(() => this.updatePosition());
-            ro.observe(this.seniorSticky);
-
-            const bbox = this.seniorSticky.getBoundingClientRect();
-            this.topSum = bbox.bottom;
-            seniorOpts.top = bbox.bottom;
-
-            const bboxSubject = this.subject.getBoundingClientRect();
-            seniorOpts.disable = !(this.seniorSticky.classList.contains('sticky') && bboxSubject.top <= bbox.bottom);
+            this.resizeObserver = new ResizeObserver(() => this.calculatePosition());
+            this.resizeObserver.observe(this.seniorSticky);
         }
 
         /**
@@ -147,14 +149,14 @@ class GlueStick {
          @memberOf GlueStick
          @protected
          */
-        this.glued = new HcSticky(this.subject, Object.assign({}, this.hcStickyOpts, seniorOpts));
+        this.glued = new HcSticky(this.subject, Object.assign({}, this.hcStickyOpts, {}));
 
         this.callCustom('preCreate');
 
         const onIntersectFn = this.onIntersect.bind(this);
         const calculateFn = this.calculate.bind(this);
         const destroyFn = this.destroy.bind(this);
-        const updatePositionFn = this.updatePosition.bind(this);
+        this.calculatePositionFn = this.calculatePosition.bind(this);
 
         if (this.footer !== null && this.footer !== undefined) {
             this.io = new window.IntersectionObserver(onIntersectFn);
@@ -175,40 +177,16 @@ class GlueStick {
             calculateFn();
         })();
 
+        this.calculatePositionFn();
+
         window.addEventListener('unload', destroyFn);
-        window.addEventListener('scroll', updatePositionFn);
+        window.addEventListener('scroll', this.calculatePositionFn);
+
+        if (this.zIndex) {
+            this.subject.style.zIndex = this.zIndex;
+        }
 
         this.callCustom('postCreate');
-    }
-
-    /**
-     * @method updatePosition
-     * @memberOf GlueStick
-     * @instance
-     * @summary updates hc-sticky
-     * @private
-     */
-    updatePosition() {
-        this.topSum = 0;
-        const seniorOpts = {
-            top: 0
-        };
-
-        if (this.seniorSticky) {
-            const bbox = this.seniorSticky.getBoundingClientRect();
-            this.topSum = bbox.bottom;
-            seniorOpts.top = bbox.bottom;
-
-            const bboxSubject = this.subject.getBoundingClientRect();
-            seniorOpts.disable = !(this.seniorSticky.classList.contains('sticky') && bboxSubject.top <= bbox.bottom);
-        }
-
-        if (this.prevOpts && this.prevOpts.top === seniorOpts.top && this.prevOpts.disable === seniorOpts.disable) {
-            return;
-        }
-        this.prevOpts = Object.assign({}, seniorOpts);
-
-        this.glued.update(seniorOpts);
     }
 
     /**
@@ -220,6 +198,10 @@ class GlueStick {
      */
     destroy() {
         this.callCustom('preDestroy');
+        window.removeEventListener('scroll', this.calculatePositionFn);
+        if (this.resizeObserver) {
+            this.resizeObserver.disconnect();
+        }
         this.glued.destroy();
         this.callCustom('postDestroy');
     }
@@ -298,6 +280,94 @@ class GlueStick {
     }
 
     /**
+     * @method calculateSeniorSticky
+     * @memberOf GlueStick
+     * @instance
+     * @summary updates hc-sticky
+     * @private
+     */
+    static calculateSeniorSticky() {
+        this.topSum = 0;
+        const seniorOpts = {
+            top: 0
+        };
+
+        if (this.seniorSticky) {
+            const bbox = this.seniorSticky.getBoundingClientRect();
+            this.topSum = bbox.bottom;
+            seniorOpts.top = bbox.bottom;
+
+            const bboxSubject = this.subject.getBoundingClientRect();
+            seniorOpts.disable = !(this.seniorSticky.classList.contains('sticky') && bboxSubject.top <= bbox.bottom);
+        }
+
+        if (this.prevOpts && this.prevOpts.top === seniorOpts.top && this.prevOpts.disable === seniorOpts.disable) {
+            return;
+        }
+        this.prevOpts = Object.assign({}, seniorOpts);
+
+        this.glued.update(seniorOpts);
+    }
+
+    /**
+     * @method calculateFooter
+     * @memberOf GlueStick
+     * @instance
+     * @summary stretches subject to touch footer
+     * @private
+     */
+    static calculateFooter() {
+        if (this.footer !== null && !this.footerVisible) {
+            this.subject.style.bottom = 0 + 'px';
+        }
+
+        if (this.footerVisible) {
+            const visibleHeight = GlueStick.getVisible(this.footer, window);
+            this.subject.style.bottom = visibleHeight + 'px';
+        }
+    }
+
+    /**
+     * @method calculateStaticSubject
+     * @memberOf GlueStick
+     * @instance
+     * @summary TODO
+     * @private
+     */
+    static calculateStaticSubject() {
+        if (this.subject.style.position === 'static') {
+            this.subject.style.width = null;
+        }
+    }
+
+    /**
+     * @method calculatePinStuck
+     * @memberOf GlueStick
+     * @instance
+     * @summary TODO
+     * @private
+     */
+    static calculatePinStuck() {
+        if (this.pinStuckWidthToElement !== null && this.subject.style.position === 'fixed') {
+            const newWidth = this.pinStuckWidthToElement.getBoundingClientRect().width;
+            this.subject.style.width = newWidth + 'px';
+        }
+    }
+
+    /**
+     * @method calculatePosition
+     * @memberOf GlueStick
+     * @instance
+     * @summary performs calculation of top positions whenever user scrolls
+     * @private
+     */
+    calculatePosition() {
+        this.positionCalculations.forEach(calculation => {
+            calculation.apply(this);
+        });
+    }
+
+    /**
      * @method calculate
      * @memberOf GlueStick
      * @instance
@@ -305,27 +375,19 @@ class GlueStick {
      * @private
      */
     calculate() {
-        let newWidth;
-        let visibleHeight;
-
         this.callCustom('preCalculate', this.footerVisible);
 
-        if (this.footer !== null && !this.footerVisible) {
-            this.subject.style.bottom = 0 + 'px';
-        }
+        this.calculations.forEach(calculation => {
+            calculation.apply(this);
+        });
 
-        if (this.footerVisible) {
-            visibleHeight = GlueStick.getVisible(this.footer, window);
-            this.subject.style.bottom = visibleHeight + 'px';
-        }
-
-        if (this.subject.style.position === 'static') {
-            this.subject.style.width = null;
-        }
-
+        let newWidth;
         if (this.pinStuckWidthToElement !== null && this.subject.style.position === 'fixed') {
             newWidth = this.pinStuckWidthToElement.getBoundingClientRect().width;
-            this.subject.style.width = newWidth + 'px';
+        }
+        let visibleHeight;
+        if (this.footer) {
+            visibleHeight = GlueStick.getVisible(this.footer, window);
         }
 
         this.callCustom('postCalculate', this.footerVisible, visibleHeight, newWidth);
