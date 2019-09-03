@@ -2,6 +2,7 @@ import resolve from 'rollup-plugin-node-resolve';
 import commonjs from 'rollup-plugin-commonjs';
 import filesize from 'rollup-plugin-filesize';
 import { terser } from 'rollup-plugin-terser';
+import babel from 'rollup-plugin-babel';
 import pkg from './package.json';
 
 export default [
@@ -46,9 +47,7 @@ export default [
         plugins: [
             resolve(),
             commonjs(),
-            terser({
-                ecma: 5
-            }),
+            terser({ ecma: 5 }),
             filesize()
         ]
     },
@@ -62,10 +61,23 @@ export default [
         },
         plugins: [
             resolve(),
-            commonjs(),
-            terser({
-                ecma: 5
+            babel({
+                exclude: 'node_modules/**',
+                presets: [
+                    [
+                        '@babel/env',
+                        {
+                            debug: true,
+                            modules: 'false',
+                            targets: {
+                                browsers: 'IE 10'
+                            }
+                        }
+                    ]
+                ]
             }),
+            commonjs(),
+            //terser({ ecma: 5 }),
             filesize()
         ]
     },
@@ -91,9 +103,7 @@ export default [
             }
         ],
         plugins: [
-            terser({
-                ecma: 5
-            }),
+            terser({ ecma: 5 }),
             filesize()
         ]
     }
