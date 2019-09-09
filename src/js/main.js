@@ -144,6 +144,10 @@ class GlueStick {
             this.resizeObserver.observe(this.seniorSticky);
         }
 
+        if (!HcSticky.Helpers) { // Required in case you include glue-stick multiple times - Helpers attaches to window.hcSticky
+            HcSticky.Helpers = window.hcSticky.Helpers;
+        }
+
         /**
          @property {hcSticky} glued - Instance of hcSticky
          @memberOf GlueStick
