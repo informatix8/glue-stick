@@ -20,7 +20,7 @@
     "url": "git@github.com:informatix8/glue-stick.git"
   },
   "dependencies": {
-    "hc-sticky": "git@github.com:informatix8/hc-sticky.git",
+    "hc-sticky": "https://github.com/informatix8/hc-sticky.git",
     "intersection-observer": "^0.7.0",
     "lodash.merge": "^4.6.2",
     "resize-observer-polyfill": "^1.5.1"
